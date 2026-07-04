@@ -4,8 +4,20 @@ export const getSensorData = (params) => {
   return api.get('/sensor/data', { params })
 }
 
-export const getSensorList = () => {
-  return api.get('/sensor/list')
+export const getAllSensorData = (params) => {
+  return api.get('/sensor/data/all', { params })
+}
+
+export const getSensorList = (params) => {
+  return api.get('/sensor/list', { params })
+}
+
+export const getSensorStats = () => {
+  return api.get('/sensor/stats')
+}
+
+export const getSensorTrend = (params) => {
+  return api.get('/sensor/trend', { params })
 }
 
 export const addSensorData = (data) => {

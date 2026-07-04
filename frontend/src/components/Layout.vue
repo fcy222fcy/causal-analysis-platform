@@ -58,7 +58,7 @@
           </template>
         </el-dropdown>
       </el-header>
-      <el-main style="background-color: #f5f7fa">
+      <el-main class="main-content">
         <slot />
       </el-main>
     </el-container>
@@ -99,5 +99,16 @@ const handleLogout = () => {
   cursor: pointer;
   display: flex;
   align-items: center;
+}
+.main-content {
+  background-color: #f5f7fa;
+  padding: 16px;
+  height: calc(100vh - 60px);
+  min-height: calc(100vh - 60px);
+  box-sizing: border-box;
+  overflow: auto;
+}
+.main-content :deep(*) {
+  box-sizing: border-box;
 }
 </style>

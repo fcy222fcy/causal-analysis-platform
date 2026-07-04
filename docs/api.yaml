@@ -1,0 +1,950 @@
+openapi: 3.0.3
+info:
+  title: 智慧养殖环境异常溯源系统 API
+  description: |
+    智慧养殖环境异常溯源系统接口文档，涵盖用户、仪表盘、传感器数据、行为数据、异常检测、因果分析、溯源报告、告警管理八大模块。
+    默认管理员账号: admin / admin123
+  version: 1.0.0
+  contact:
+    name: Smart Farming Team
+servers:
+  - url: http://localhost:8080/api
+    description: 本地后端服务
+  - url: /api
+    description: 前端 Vite 代理
+
+tags:
+  - name: 用户管理
+    description: 登录、注册、获取当前用户信息
+  - name: 仪表盘
+    description: Dashboard 汇总统计、趋势图、分布图
+  - name: 传感器数据
+    description: 环境传感器数据 CRUD、趋势、统计
+  - name: 行为数据
+    description: 动物行为记录
+  - name: 异常检测
+    description: 执行异常检测、查询异常事件
+  - name: 因果分析
+    description: 执行因果分析、获取因果图/路径
+  - name: 溯源报告
+    description: 生成、查询溯源分析报告
+  - name: 告警管理
+    description: 告警列表、确认、解决、统计
+
+paths:
+  # ============================================================
+  # 1. 用户管理
+  # ============================================================
+  /user/login:
+    post:
+      tags: [用户管理]
+      summary: 用户登录
+      description: 用户名密码登录，返回 JWT Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string, example: admin }
+                password: { type: string, example: admin123 }
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:    { type: string, example: eyJhbGciOiJIUzI1NiJ9... }
+                  userId:   { type: integer, format: int64, example: 1 }
+                  username: { type: string, example: admin }
+                  role:     { type: string, enum: [admin, user], example: admin }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /user/register:
+    post:
+      tags: [用户管理]
+      summary: 用户注册
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string }
+                role:     { type: string, enum: [admin, user], default: user }
+      responses:
+        '200':
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: 注册成功 }
+
+  /user/info:
+    get:
+      tags: [用户管理]
+      summary: 获取当前用户信息
+      security: [ { bearerAuth: [] } ]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  userId:   { type: integer, format: int64 }
+                  username: { type: string }
+                  role:     { type: string }
+
+  # ============================================================
+  # 2. 仪表盘
+  # ============================================================
+  /dashboard/stats:
+    get:
+      tags: [仪表盘]
+      summary: 仪表盘汇总统计
+      security: [ { bearerAuth: [] } ]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sensorCount:       { type: integer, example: 10 }
+                  anomalyCount:      { type: integer, example: 40 }
+                  alarmCount:        { type: integer, example: 14 }
+                  causalCount:       { type: integer, example: 0 }
+                  reportCount:       { type: integer, example: 1 }
+                  pendingAlarmCount: { type: integer, example: 12 }
+
+  /dashboard/trend:
+    get:
+      tags: [仪表盘]
+      summary: 环境趋势数据（折线图）
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrendData'
+
+  /dashboard/anomaly-distribution:
+    get:
+      tags: [仪表盘]
+      summary: 异常事件分布（饼图）
+      security: [ { bearerAuth: [] } ]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:  { type: string }
+                        value: { type: integer }
+                    example:
+                      - { name: 环境异常, value: 32 }
+                      - { name: 行为异常, value: 5  }
+                      - { name: 复合异常, value: 3  }
+                      - { name: 其他,     value: 0  }
+
+  # ============================================================
+  # 3. 传感器数据
+  # ============================================================
+  /sensor/data:
+    post:
+      tags: [传感器数据]
+      summary: 保存单条传感器数据
+      security: [ { bearerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EnvSensorData' }
+      responses:
+        '200': { description: 保存成功 }
+
+    get:
+      tags: [传感器数据]
+      summary: 分页获取传感器数据
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/barnId'
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageResult'
+                  - type: object
+                    properties:
+                      list:
+                        type: array
+                        items: { $ref: '#/components/schemas/EnvSensorData' }
+
+  /sensor/data/all:
+    get:
+      tags: [传感器数据]
+      summary: 获取全部传感器数据（最多 200 条）
+      security: [ { bearerAuth: [] } ]
+      parameters: [ $ref: '#/components/parameters/barnId' ]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/EnvSensorData' }
+
+  /sensor/data/range:
+    get:
+      tags: [传感器数据]
+      summary: 按时间范围获取传感器数据
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/barnId'
+        - name: startTime
+          in: query
+          required: true
+          schema: { type: string }
+        - name: endTime
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/EnvSensorData' }
+
+  /sensor/list:
+    get:
+      tags: [传感器数据]
+      summary: 传感器列表
+      security: [ { bearerAuth: [] } ]
+      parameters: [ $ref: '#/components/parameters/barnId' ]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    sensorId: { type: string }
+                    barnId:   { type: integer, format: int64 }
+                    name:     { type: string }
+                    type:     { type: string, enum: [temperature, humidity, ammonia] }
+
+  /sensor/stats:
+    get:
+      tags: [传感器数据]
+      summary: 传感器统计
+      security: [ { bearerAuth: [] } ]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sensorCount:  { type: integer }
+                  totalRecords: { type: integer }
+
+  /sensor/trend:
+    get:
+      tags: [传感器数据]
+      summary: 环境趋势（可按棚舍筛选）
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/barnId'
+        - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TrendData' }
+
+  /sensor/batch:
+    post:
+      tags: [传感器数据]
+      summary: 批量导入传感器数据
+      security: [ { bearerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { $ref: '#/components/schemas/EnvSensorData' }
+      responses:
+        '200': { description: 导入成功 }
+
+  # ============================================================
+  # 4. 行为数据
+  # ============================================================
+  /behavior/list:
+    get:
+      tags: [行为数据]
+      summary: 分页获取行为数据
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/barnId'
+        - name: behaviorType
+          in: query
+          schema:
+            type: string
+            enum: [normal, stress, abnormal, feeding, resting]
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageResult'
+                  - type: object
+                    properties:
+                      list:
+                        type: array
+                        items: { $ref: '#/components/schemas/AnimalBehavior' }
+
+  /behavior/all:
+    get:
+      tags: [行为数据]
+      summary: 获取全部行为数据（最多 200 条）
+      security: [ { bearerAuth: [] } ]
+      parameters: [ $ref: '#/components/parameters/barnId' ]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AnimalBehavior' }
+
+  /behavior/add:
+    post:
+      tags: [行为数据]
+      summary: 新增行为记录
+      security: [ { bearerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AnimalBehavior' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AnimalBehavior' }
+
+  # ============================================================
+  # 5. 异常检测
+  # ============================================================
+  /anomaly/detect:
+    post:
+      tags: [异常检测]
+      summary: 执行异常检测
+      security: [ { bearerAuth: [] } ]
+      parameters: [ $ref: '#/components/parameters/barnId' ]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detected: { type: integer, example: 15 }
+                  message:  { type: string,  example: 检测完成 }
+
+  /anomaly/list:
+    get:
+      tags: [异常检测]
+      summary: 分页获取异常事件
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/barnId'
+        - name: eventType
+          in: query
+          schema:
+            type: string
+            enum: [environmental, behavioral, composite]
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageResult'
+                  - type: object
+                    properties:
+                      list:
+                        type: array
+                        items: { $ref: '#/components/schemas/AnomalyEvent' }
+
+  /anomaly/all:
+    get:
+      tags: [异常检测]
+      summary: 获取全部异常事件（最多 200 条）
+      security: [ { bearerAuth: [] } ]
+      parameters: [ $ref: '#/components/parameters/barnId' ]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AnomalyEvent' }
+
+  /anomaly/stats:
+    get:
+      tags: [异常检测]
+      summary: 异常统计
+      security: [ { bearerAuth: [] } ]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:         { type: integer }
+                  environmental: { type: integer }
+                  behavioral:    { type: integer }
+                  composite:     { type: integer }
+
+  # ============================================================
+  # 6. 因果分析
+  # ============================================================
+  /causal/analyze:
+    post:
+      tags: [因果分析]
+      summary: 执行因果分析（同步）
+      security: [ { bearerAuth: [] } ]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                barn_id: { type: integer, format: int64, example: 1 }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CausalAnalysisResult' }
+
+  /causal/analyze/async:
+    post:
+      tags: [因果分析]
+      summary: 执行因果分析（异步）
+      security: [ { bearerAuth: [] } ]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                barn_id: { type: integer, format: int64, example: 1 }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CausalAnalysisResult' }
+
+  /causal/relations:
+    get:
+      tags: [因果分析]
+      summary: 因果关系列表（分页）
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/barnId'
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageResult'
+                  - type: object
+                    properties:
+                      list:
+                        type: array
+                        items: { $ref: '#/components/schemas/CausalRelation' }
+
+  /causal/stats:
+    get:
+      tags: [因果分析]
+      summary: 因果关系统计
+      security: [ { bearerAuth: [] } ]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalRelations: { type: integer }
+
+  # ============================================================
+  # 7. 溯源报告
+  # ============================================================
+  /traceability/report:
+    post:
+      tags: [溯源报告]
+      summary: 生成溯源报告
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - name: eventId
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: barnId
+          in: query
+          schema: { type: integer, format: int64 }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                causeChain:
+                  type: string
+                  example: 温度异常 → 氨气升高 → 环境恶化 → 动物应激
+                reportContent:
+                  type: string
+                  example: 根据溯源分析，环境因子异常是主要原因链。
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TraceabilityReport' }
+
+  /traceability/reports:
+    get:
+      tags: [溯源报告]
+      summary: 分页获取报告列表
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/barnId'
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageResult'
+                  - type: object
+                    properties:
+                      list:
+                        type: array
+                        items: { $ref: '#/components/schemas/TraceabilityReport' }
+
+  /traceability/all:
+    get:
+      tags: [溯源报告]
+      summary: 获取全部报告（最多 200 条）
+      security: [ { bearerAuth: [] } ]
+      parameters: [ $ref: '#/components/parameters/barnId' ]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/TraceabilityReport' }
+
+  /traceability/report/{reportId}:
+    get:
+      tags: [溯源报告]
+      summary: 获取单份报告详情
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TraceabilityReport' }
+
+  # ============================================================
+  # 8. 告警管理
+  # ============================================================
+  /alarm/create:
+    post:
+      tags: [告警管理]
+      summary: 创建告警
+      security: [ { bearerAuth: [] } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AlarmRecord' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AlarmRecord' }
+
+  /alarm/list:
+    get:
+      tags: [告警管理]
+      summary: 分页获取告警列表
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - $ref: '#/components/parameters/barnId'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, acknowledged, resolved]
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageResult'
+                  - type: object
+                    properties:
+                      list:
+                        type: array
+                        items: { $ref: '#/components/schemas/AlarmRecord' }
+
+  /alarm/all:
+    get:
+      tags: [告警管理]
+      summary: 获取全部告警（最多 200 条）
+      security: [ { bearerAuth: [] } ]
+      parameters: [ $ref: '#/components/parameters/barnId' ]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AlarmRecord' }
+
+  /alarm/pending:
+    get:
+      tags: [告警管理]
+      summary: 获取待处理告警
+      security: [ { bearerAuth: [] } ]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AlarmRecord' }
+
+  /alarm/{alarmId}/acknowledge:
+    put:
+      tags: [告警管理]
+      summary: 确认告警
+      description: 将告警状态由 pending 变更为 acknowledged
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - name: alarmId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - name: handlerId
+          in: query
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: 确认成功 }
+                  alarmId: { type: integer, format: int64 }
+
+  /alarm/{alarmId}/resolve:
+    put:
+      tags: [告警管理]
+      summary: 解决告警
+      description: 将告警状态变更为 resolved（可从任何状态直接解决）
+      security: [ { bearerAuth: [] } ]
+      parameters:
+        - name: alarmId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - name: handlerId
+          in: query
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: 解决成功 }
+                  alarmId: { type: integer, format: int64 }
+
+  /alarm/stats:
+    get:
+      tags: [告警管理]
+      summary: 告警统计
+      security: [ { bearerAuth: [] } ]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:        { type: integer }
+                  pending:      { type: integer }
+                  acknowledged: { type: integer }
+                  resolved:     { type: integer }
+
+# ============================================================
+# 公共组件
+# ============================================================
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: '登录获取 Token 后填入: Bearer {token}'
+
+  parameters:
+    barnId:
+      name: barnId
+      in: query
+      schema: { type: integer, format: int64 }
+      description: 棚舍 ID（1~5）
+    page:
+      name: page
+      in: query
+      schema: { type: integer, default: 1, minimum: 1 }
+    size:
+      name: size
+      in: query
+      schema: { type: integer, default: 50, minimum: 1, maximum: 500 }
+    limit:
+      name: limit
+      in: query
+      schema: { type: integer, default: 50 }
+
+  responses:
+    Unauthorized:
+      description: 未登录或 Token 过期
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message: { type: string, example: 未授权 }
+
+  schemas:
+    # ========== 通用分页响应 ==========
+    PageResult:
+      type: object
+      properties:
+        list:  { type: array, items: { } }
+        total: { type: integer, example: 40 }
+        page:  { type: integer, example: 1 }
+        size:  { type: integer, example: 20 }
+
+    # ========== 趋势图 ==========
+    TrendData:
+      type: object
+      properties:
+        timestamps:
+          type: array
+          items: { type: string }
+          example: ['16:12:44','16:12:49']
+        temperature:
+          type: array
+          items: { type: number, format: double }
+          example: [25.5, 26.1]
+        humidity:
+          type: array
+          items: { type: number, format: double }
+          example: [65.2, 64.8]
+        ammoniaLevel:
+          type: array
+          items: { type: number, format: double }
+          example: [12.3, 13.1]
+
+    # ========== 实体：环境传感器 ==========
+    EnvSensorData:
+      type: object
+      properties:
+        id:           { type: integer, format: int64, readOnly: true }
+        sensorId:     { type: string, example: S001 }
+        barnId:       { type: integer, format: int64, example: 1 }
+        temperature:  { type: number, format: double, example: 25.50 }
+        humidity:     { type: number, format: double, example: 65.00 }
+        ammoniaLevel: { type: number, format: double, example: 12.00 }
+        timestamp:    { type: string, format: date-time, example: '2026-07-03T16:15:59' }
+
+    # ========== 实体：动物行为 ==========
+    AnimalBehavior:
+      type: object
+      properties:
+        recordId:         { type: integer, format: int64, readOnly: true }
+        barnId:           { type: integer, format: int64, example: 1 }
+        behaviorType:
+          type: string
+          enum: [normal, stress, abnormal, feeding, resting]
+          example: normal
+        confidenceScore:  { type: number, format: double, example: 0.85, minimum: 0, maximum: 1 }
+        timestamp:        { type: string, format: date-time }
+
+    # ========== 实体：异常事件 ==========
+    AnomalyEvent:
+      type: object
+      properties:
+        eventId:       { type: integer, format: int64, readOnly: true }
+        barnId:        { type: integer, format: int64, example: 1 }
+        eventType:
+          type: string
+          enum: [environmental, behavioral, composite]
+          example: environmental
+        severityLevel:
+          type: string
+          enum: [low, medium, high]
+          example: high
+        description:   { type: string, example: '温度过高: 37.29°C' }
+        timestamp:     { type: string, format: date-time }
+
+    # ========== 实体：因果关系 ==========
+    CausalRelation:
+      type: object
+      properties:
+        relationId:      { type: integer, format: int64, readOnly: true }
+        barnId:          { type: integer, format: int64 }
+        causeVariable:   { type: string, example: ammonia_level }
+        effectVariable:  { type: string, example: temperature }
+        correlationScore:{ type: number, format: double }
+        causalStrength:  { type: number, format: double }
+        timestamp:       { type: string, format: date-time }
+
+    # ========== 因果分析结果 ==========
+    CausalAnalysisResult:
+      type: object
+      properties:
+        message:
+          type: string
+          example: 分析完成
+        causal_paths:
+          type: array
+          items:
+            type: object
+            properties:
+              cause:    { type: string, example: ammonia_level }
+              effect:   { type: string, example: temperature }
+              strength: { type: number, format: double, example: 0.85 }
+              direction:
+                type: string
+                enum: [positive, negative]
+                example: positive
+        graph:
+          type: object
+          properties:
+            nodes:
+              type: array
+              items:
+                type: object
+                properties:
+                  name:      { type: string }
+                  itemStyle: { type: object, properties: { color: { type: string } } }
+              example:
+                - { name: temperature,   itemStyle: { color: '#409EFF' } }
+                - { name: humidity,      itemStyle: { color: '#67C23A' } }
+                - { name: ammonia_level, itemStyle: { color: '#E6A23C' } }
+                - { name: stress,        itemStyle: { color: '#F56C6C' } }
+                - { name: abnormal_behavior, itemStyle: { color: '#909399' } }
+            edges:
+              type: array
+              items:
+                type: object
+                properties:
+                  source:   { type: string }
+                  target:   { type: string }
+                  strength: { type: number, format: double }
+              example:
+                - { source: ammonia_level, target: temperature, strength: 0.85 }
+                - { source: temperature,   target: humidity,    strength: 0.72 }
+                - { source: stress,        target: abnormal_behavior, strength: 0.82 }
+
+    # ========== 实体：溯源报告 ==========
+    TraceabilityReport:
+      type: object
+      properties:
+        reportId:     { type: integer, format: int64, readOnly: true }
+        eventId:      { type: integer, format: int64, example: 1 }
+        barnId:       { type: integer, format: int64, example: 1 }
+        causeChain:   { type: string, example: '温度异常 → 氨气升高 → 环境恶化 → 动物应激' }
+        reportContent:{ type: string, example: '根据溯源分析，环境因子异常是主要原因链。' }
+        createTime:   { type: string, format: date-time, readOnly: true }
+
+    # ========== 实体：告警记录 ==========
+    AlarmRecord:
+      type: object
+      properties:
+        alarmId:      { type: integer, format: int64, readOnly: true }
+        eventId:      { type: integer, format: int64, example: 1 }
+        barnId:       { type: integer, format: int64, example: 1 }
+        alarmType:
+          type: string
+          enum: [temperature, humidity, ammonia, behavior, composite]
+          example: temperature
+        alarmLevel:
+          type: string
+          enum: [low, medium, high]
+          example: high
+        alarmContent: { type: string, example: '温度过高：37.00°C（阈值：35.00°C）' }
+        status:
+          type: string
+          enum: [pending, acknowledged, resolved]
+          example: pending
+        createTime:   { type: string, format: date-time, readOnly: true }
+        handleTime:   { type: string, format: date-time, readOnly: true }
+        handlerId:    { type: integer, format: int64, readOnly: true }

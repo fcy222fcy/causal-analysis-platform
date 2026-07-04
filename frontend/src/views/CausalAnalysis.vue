@@ -5,9 +5,14 @@
         <template #header>
           <div class="card-header">
             <span>因果关系图</span>
-            <el-button type="primary" @click="analyzeCausal" :loading="loading">
-              执行分析
-            </el-button>
+            <div class="filters">
+              <el-select v-model="barnId" placeholder="棚舍" clearable style="width:140px;margin-right:10px">
+                <el-option v-for="n in 5" :key="n" :label="'棚舍 ' + n" :value="n" />
+              </el-select>
+              <el-button type="primary" @click="analyzeCausal" :loading="loading">
+                执行分析
+              </el-button>
+            </div>
           </div>
         </template>
         <div ref="causalGraph" style="height: 500px"></div>
@@ -15,18 +20,22 @@
 
       <el-card style="margin-top: 20px">
         <template #header>因果路径</template>
-        <el-table :data="causalPaths" style="width: 100%">
-          <el-table-column prop="cause" label="原因变量" />
-          <el-table-column prop="effect" label="结果变量" />
-          <el-table-column prop="strength" label="因果强度">
+        <el-table :data="causalPaths" style="width: 100%" v-loading="loading">
+          <el-table-column prop="cause" label="原因变量">
+            <template #default="{ row }">{{ getVarLabel(row.cause) }}</template>
+          </el-table-column>
+          <el-table-column prop="effect" label="结果变量">
+            <template #default="{ row }">{{ getVarLabel(row.effect) }}</template>
+          </el-table-column>
+          <el-table-column prop="strength" label="因果强度" width="200">
             <template #default="{ row }">
-              <el-progress :percentage="Math.round(row.strength * 100)" />
+              <el-progress :percentage="Math.round((row.strength || 0) * 100)" :stroke-width="16" />
             </template>
           </el-table-column>
-          <el-table-column prop="direction" label="方向">
+          <el-table-column prop="direction" label="方向" width="140">
             <template #default="{ row }">
               <el-tag :type="row.direction === 'positive' ? 'success' : 'danger'">
-                {{ row.direction === 'positive' ? '正向' : '负向' }}
+                {{ row.direction === 'positive' ? '正向 +' : '负向 -' }}
               </el-tag>
             </template>
           </el-table-column>
@@ -37,67 +46,136 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick, onBeforeUnmount } from 'vue'
 import * as echarts from 'echarts'
 import Layout from '../components/Layout.vue'
+import { runCausalAnalysis } from '../api/causal'
+import { ElMessage } from 'element-plus'
 
 const causalGraph = ref(null)
 const loading = ref(false)
-const causalPaths = ref([
-  { cause: 'ammonia_level', effect: 'temperature', strength: 0.85, direction: 'positive' },
-  { cause: 'temperature', effect: 'humidity', strength: 0.72, direction: 'negative' },
-  { cause: 'ammonia_level', effect: 'humidity', strength: 0.68, direction: 'positive' }
-])
+const barnId = ref(null)
+const causalPaths = ref([])
+let chartInstance = null
 
-onMounted(() => {
-  initCausalGraph()
-})
+const varLabels = {
+  temperature: '温度',
+  humidity: '湿度',
+  ammonia_level: '氨气浓度',
+  stress: '应激反应',
+  abnormal_behavior: '异常行为'
+}
+const varColors = {
+  temperature: '#409EFF',
+  humidity: '#67C23A',
+  ammonia_level: '#E6A23C',
+  stress: '#F56C6C',
+  abnormal_behavior: '#909399'
+}
+const getVarLabel = (v) => varLabels[v] || v
 
-const initCausalGraph = () => {
-  const chart = echarts.init(causalGraph.value)
+const initCausalGraph = (graphData) => {
+  if (!causalGraph.value) return
+  if (!chartInstance) {
+    chartInstance = echarts.init(causalGraph.value)
+  }
+  const nodes = (graphData?.nodes || []).map(n => ({
+    name: n.name,
+    symbolSize: 82,
+    itemStyle: Object.assign(
+      { borderColor: '#ffffff', borderWidth: 3, shadowBlur: 10, shadowColor: 'rgba(0,0,0,.15)' },
+      n.itemStyle || { color: varColors[n.name] || '#8e44ad' }
+    ),
+    label: {
+      show: true,
+      position: 'inside',
+      color: '#ffffff',
+      fontSize: 14,
+      fontWeight: 700,
+      lineHeight: 18,
+      align: 'center',
+      verticalAlign: 'middle',
+      formatter: (p) => getVarLabel(p.name)
+    }
+  }))
+  const edges = (graphData?.edges || []).map(e => ({
+    source: e.source,
+    target: e.target,
+    strength: e.strength,
+    lineStyle: { width: Math.max(2, (e.strength || 0.5) * 5), curveness: 0.1, color: '#9aa7bd' },
+    label: {
+      show: true,
+      position: 'middle',
+      backgroundColor: '#ffffff',
+      padding: [3, 7],
+      borderRadius: 4,
+      color: '#606266',
+      fontSize: 11,
+      formatter: e.strength ? (Math.round(e.strength * 100) + '%') : ''
+    }
+  }))
 
-  const nodes = [
-    { name: 'temperature', symbolSize: 50, itemStyle: { color: '#409EFF' }, label: { show: true } },
-    { name: 'humidity', symbolSize: 50, itemStyle: { color: '#67C23A' }, label: { show: true } },
-    { name: 'ammonia_level', symbolSize: 50, itemStyle: { color: '#E6A23C' }, label: { show: true } }
-  ]
-
-  const links = [
-    { source: 'ammonia_level', target: 'temperature', lineStyle: { width: 3 } },
-    { source: 'temperature', target: 'humidity', lineStyle: { width: 2 } },
-    { source: 'ammonia_level', target: 'humidity', lineStyle: { width: 2 } }
-  ]
-
-  chart.setOption({
-    tooltip: {},
+  chartInstance.setOption({
+    tooltip: {
+      formatter: (p) => {
+        if (p.dataType === 'edge') {
+          return `${getVarLabel(p.data.source)} → ${getVarLabel(p.data.target)}<br/>强度: ${Math.round((p.data.strength || 0) * 100)}%`
+        }
+        return getVarLabel(p.name)
+      }
+    },
     series: [{
       type: 'graph',
       layout: 'force',
+      roam: true,
+      draggable: true,
+      focusNodeAdjacency: true,
       data: nodes,
-      links: links,
-      force: { repulsion: 300 },
+      links: edges,
+      force: { repulsion: 800, edgeLength: 200, gravity: 0.08 },
       edgeSymbol: ['none', 'arrow'],
-      edgeSymbolSize: [0, 10],
-      label: { position: 'right' }
+      edgeSymbolSize: [0, 14],
+      label: { fontSize: 14, fontWeight: 700 }
     }]
-  })
+  }, true)
 }
 
 const analyzeCausal = async () => {
   loading.value = true
   try {
-    // 调用API执行分析
-    console.log('执行因果分析')
+    const res = await runCausalAnalysis(barnId.value)
+    causalPaths.value = res.causal_paths || []
+    initCausalGraph(res.graph || null)
+    ElMessage.success(res.message || '分析完成')
+  } catch (e) {
+    ElMessage.error('分析失败：' + e.message)
   } finally {
     loading.value = false
   }
 }
+
+const handleResize = () => chartInstance?.resize()
+
+onMounted(async () => {
+  await nextTick()
+  analyzeCausal()
+  window.addEventListener('resize', handleResize)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleResize)
+  chartInstance?.dispose()
+})
 </script>
 
 <style scoped>
 .card-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+}
+.filters {
+  display: flex;
   align-items: center;
 }
 </style>

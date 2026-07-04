@@ -1,0 +1,80 @@
+# 依赖目录
+node_modules/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+env*/
+.venv/
+
+# 构建输出
+dist/
+build/
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# IDE 配置
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 日志文件
+*.log
+logs/
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# 测试覆盖率
+coverage/
+htmlcov/
+.pytest_cache/
+
+# Python 缓存
+*.pyc
+__pycache__/
+
+# Java 编译文件
+*.class
+*.jar
+
+# Maven
+target/
+
+# Node.js
+*.local
+
+# 编辑器临时文件
+*.tmp
+*.temp
+
+# 临时文件
+*.bak
+*.backup
+
+# 项目特定
+causal-service/tests/__pycache__/
+
+# Playwright MCP
+.playwright-mcp/
+
+# 独立的子仓库
+smart-farming-backend/
