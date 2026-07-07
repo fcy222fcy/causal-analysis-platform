@@ -6,6 +6,7 @@
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2-brightgreen.svg)](https://spring.io/projects/spring-boot)
 [![Vue.js](https://img.shields.io/badge/Vue.js-3.3-blue.svg)](https://vuejs.org/)
 [![Python](https://img.shields.io/badge/Python-3.8+-yellow.svg)](https://www.python.org/)
+[![MySQL](https://img.shields.io/badge/MySQL-8.0-blue.svg)](https://www.mysql.com/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](#)
 
 ## 📋 项目简介
@@ -20,8 +21,16 @@
 - ✅ **智能异常检测** - 阈值模型 + 时序异常检测算法
 - ✅ **因果关系建模** - 基于 DoWhy 的因果图构建与分析
 - ✅ **异常溯源分析** - 异常源定位 + 最优因果路径推断
+- ✅ **实时告警推送** - WebSocket 实时通知 + 多级告警分类
 - ✅ **可视化展示** - ECharts 图表 + 因果关系图 + 溯源路径
 - ✅ **报告生成** - 自动生成异常溯源分析报告
+
+### 💡 创新亮点
+
+1. **因果推理替代相关性分析** - 不只告诉"发生了什么"，更解释"为什么发生"
+2. **多源数据融合** - 环境传感器 + 声纹 + 视频行为数据联合分析
+3. **可解释因果链** - 每个异常事件必须具备可解释的因果路径
+4. **Java + Python 混合架构** - 充分利用两种语言优势
 
 ## 🏗️ 系统架构
 
@@ -41,6 +50,18 @@
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### 🔄 核心业务流程
+
+```
+数据采集 → 时间对齐 → 异常检测 → 因果建模 → 溯源分析 → 报告生成
+   ↓          ↓          ↓          ↓          ↓          ↓
+传感器数据   秒级同步   滑动窗口   因果图     最优路径   可视化展示
+声纹数据     ↓         统计模型   构建       推断       ↓
+视频数据   统一时间     ↓         ↓          ↓       ECharts
+   ↓       坐标      环境异常   相关性     异常源     因果图
+行为数据               检测     矩阵计算   定位       溯源图
+```
+
 ## 🛠️ 技术栈
 
 ### 后端技术
@@ -54,6 +75,7 @@
 | Redis | 7.x | 缓存数据库 |
 | JWT | 0.12.5 | 身份认证 |
 | Knife4j | 4.3.0 | API 文档 |
+| WebSocket | - | 实时告警推送 |
 
 ### 前端技术
 
@@ -230,10 +252,10 @@ npm run dev
 | animal_behavior | 动物行为数据 | behavior_type, confidence_score |
 | anomaly_event | 异常事件表 | event_type, severity_level |
 | causal_relation | 因果关系表 | cause_variable, effect_variable, causal_strength |
-| analysis_report | 分析报告表 | report_content, analysis_time |
-| sensor_config | 传感器配置表 | sensor_type, threshold_config |
-| barn_info | 棚舍信息表 | barn_name, location |
-| alert_record | 告警记录表 | alert_type, alert_level |
+| traceability_report | 溯源报告表 | cause_chain, report_content |
+| alarm_record | 告警记录表 | alarm_type, alarm_level, status |
+| operation_log | 操作日志表 | user_id, operation, params |
+| system_config | 系统配置表 | config_key, config_value |
 
 ### 数据库特点
 
@@ -288,50 +310,57 @@ export default defineConfig({
 })
 ```
 
-## 📝 核心业务流程
-
-```
-数据采集 → 时间对齐 → 异常检测 → 因果建模 → 溯源分析 → 报告生成
-   ↓          ↓          ↓          ↓          ↓          ↓
-传感器数据   秒级同步   滑动窗口   因果图     最优路径   可视化展示
-声纹数据     ↓         统计模型   构建       推断       ↓
-视频数据   统一时间     ↓         ↓          ↓       ECharts
-   ↓       坐标      环境异常   相关性     异常源     因果图
-行为数据               检测     矩阵计算   定位       溯源图
-```
-
 ## 🎨 功能模块
 
-### 1. 数据采集模块
+### 1. 用户与权限模块
+
+- 登录/注册（JWT 认证）
+- 角色权限控制（管理员/普通用户）
+- 操作日志记录
+
+### 2. 数据采集模块
+
 - 环境传感器数据接入（温度、湿度、氨气浓度）
 - 动物声纹数据采集与分类
 - 视频行为数据识别
+- 模拟数据生成器（支持批量导入）
 
-### 2. 异常检测模块
+### 3. 异常检测模块
+
 - 基于滑动窗口的时序异常检测
 - 多维度阈值判断
-- 行为异常识别
+- 行为异常识别（置信度评分）
 
-### 3. 因果分析模块
+### 4. 因果分析模块
+
 - 基于 DoWhy 的因果图构建
-- 相关性矩阵计算
+- 相关性矩阵计算（皮尔逊/斯皮尔曼）
 - 因果强度量化
 
-### 4. 溯源分析模块
-- 异常源定位
-- 最优因果路径推断
-- 原因链解释
+### 5. 溯源分析模块
 
-### 5. 可视化模块
-- 数据大屏展示
+- 异常源自动定位
+- 最优因果路径推断
+- 原因链自动生成
+
+### 6. 可视化模块
+
+- 数据大屏展示（Dashboard）
 - ECharts 统计图表
-- D3.js 因果关系图
+- D3.js 因果关系图（交互式）
 - 溯源路径可视化
 
-### 6. 告警管理模块
-- 实时告警推送
-- 告警记录查询
-- 告警级别分类
+### 7. 告警管理模块
+
+- 实时告警推送（WebSocket）
+- 告警记录查询与处理
+- 告警级别分类（低/中/高）
+
+### 8. 报告生成模块
+
+- 自动生成异常溯源分析报告
+- 包含原因链解释
+- 支持导出与历史查看
 
 ## 🧪 测试
 
