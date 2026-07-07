@@ -8,6 +8,18 @@
             <el-select v-model="filter.barnId" placeholder="棚舍" clearable style="width:140px;margin-right:10px" @change="onFilterChange">
               <el-option v-for="n in 5" :key="n" :label="'棚舍 ' + n" :value="n" />
             </el-select>
+            <el-upload
+              ref="uploadRef"
+              :action="uploadUrl"
+              :before-upload="beforeUpload"
+              :on-success="handleUploadSuccess"
+              :on-error="handleUploadError"
+              :show-file-list="false"
+              accept=".csv"
+              style="margin-right:10px"
+            >
+              <el-button type="success" :loading="uploading">导入CSV</el-button>
+            </el-upload>
             <el-button type="primary" @click="loadData" :loading="loading">刷新</el-button>
           </div>
         </div>
@@ -46,7 +58,10 @@ const total = ref(0)
 const page = ref(1)
 const size = ref(20)
 const loading = ref(false)
+const uploading = ref(false)
 const filter = reactive({ barnId: null })
+const uploadRef = ref(null)
+const uploadUrl = '/api/sensor/import'
 
 const loadData = async () => {
   loading.value = true
@@ -66,6 +81,31 @@ const loadData = async () => {
 const onFilterChange = () => {
   page.value = 1
   loadData()
+}
+
+const beforeUpload = (file) => {
+  const isCSV = file.type === 'text/csv' || file.name.endsWith('.csv')
+  if (!isCSV) {
+    ElMessage.error('只能上传 CSV 文件！')
+    return false
+  }
+  uploading.value = true
+  return true
+}
+
+const handleUploadSuccess = (response) => {
+  uploading.value = false
+  if (response.success) {
+    ElMessage.success(`导入成功！共 ${response.totalRows} 行，成功 ${response.successCount} 条，失败 ${response.failCount} 条`)
+    loadData() // 刷新数据
+  } else {
+    ElMessage.error(response.message || '导入失败')
+  }
+}
+
+const handleUploadError = (error) => {
+  uploading.value = false
+  ElMessage.error('上传失败：' + (error.message || '网络错误'))
 }
 
 onMounted(() => {
