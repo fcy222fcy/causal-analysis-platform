@@ -7,6 +7,7 @@
             <span>行为数据</span>
             <div class="filters">
               <el-select v-model="filter.barnId" placeholder="棚舍" clearable style="width:140px;margin-right:10px" @change="onFilterChange">
+                <el-option label="全部棚舍" :value="null" />
                 <el-option v-for="n in 5" :key="n" :label="'棚舍 ' + n" :value="n" />
               </el-select>
               <el-select v-model="filter.behaviorType" placeholder="行为类型" clearable style="width:160px;margin-right:10px" @change="onFilterChange">
@@ -190,5 +191,10 @@ onBeforeUnmount(() => {
   align-items: center;
   border-top: 1px solid #f0f2f5;
   background: #fafbfc;
+  gap: 12px;
+}
+.pagination-text {
+  font-size: 13px;
+  color: #606266;
 }
 </style>

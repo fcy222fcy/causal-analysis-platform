@@ -2,34 +2,30 @@
 chcp 65001 >nul
 
 REM ============================================
-REM 智慧养殖环境异常溯源与因果分析系统
-REM 停止所有服务
+REM Stop All Services
 REM ============================================
 
 echo ============================================
-echo 停止所有服务
+echo Stopping All Services
 echo ============================================
 echo.
 
-REM 停止前端服务
-echo [INFO] 停止前端服务...
+echo [INFO] Stopping Frontend Service...
 taskkill /FI "WINDOWTITLE eq Frontend Service*" /F >nul 2>nul
 taskkill /IM node.exe /F >nul 2>nul
-echo [SUCCESS] 前端服务已停止
+echo [SUCCESS] Frontend Service stopped
 
-REM 停止因果分析服务
-echo [INFO] 停止因果分析服务...
+echo [INFO] Stopping Causal Analysis Service...
 taskkill /FI "WINDOWTITLE eq Causal Service*" /F >nul 2>nul
 taskkill /IM python.exe /F >nul 2>nul
-echo [SUCCESS] 因果分析服务已停止
+echo [SUCCESS] Causal Analysis Service stopped
 
-REM 停止后端服务
-echo [INFO] 停止后端服务...
+echo [INFO] Stopping Backend Service...
 taskkill /FI "WINDOWTITLE eq Backend Service*" /F >nul 2>nul
-echo [SUCCESS] 后端服务已停止
+echo [SUCCESS] Backend Service stopped
 
 echo.
 echo ============================================
-echo 所有服务已停止
+echo All Services Stopped
 echo ============================================
 pause

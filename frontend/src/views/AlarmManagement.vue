@@ -1,11 +1,28 @@
 <template>
   <Layout>
     <div class="alarm-management">
+      <!-- WebSocket 实时告警通知 -->
+      <el-alert
+        v-if="wsNotification"
+        :title="wsNotification.alarmContent"
+        type="error"
+        show-icon
+        closable
+        @close="wsNotification = null"
+        style="margin-bottom: 16px;"
+      />
+
       <el-card>
         <template #header>
           <div class="card-header">
             <span>告警管理</span>
             <div class="filters">
+              <el-tag v-if="wsConnected" type="success" size="small" style="margin-right: 10px;">
+                WebSocket 已连接
+              </el-tag>
+              <el-tag v-else type="info" size="small" style="margin-right: 10px;">
+                WebSocket 未连接
+              </el-tag>
               <el-select v-model="filter.barnId" placeholder="棚舍" clearable style="width:140px;margin-right:10px" @change="onFilterChange">
                 <el-option v-for="n in 5" :key="n" :label="'棚舍 ' + n" :value="n" />
               </el-select>
@@ -79,7 +96,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted, onUnmounted, reactive } from 'vue'
 import Layout from '../components/Layout.vue'
 import { getAlarms, acknowledgeAlarm, resolveAlarm } from '../api/alarm'
 import { ElMessage } from 'element-plus'
@@ -90,6 +107,12 @@ const page = ref(1)
 const size = ref(20)
 const loading = ref(false)
 const filter = reactive({ barnId: null, status: null })
+
+// WebSocket 相关
+const wsConnected = ref(false)
+const wsNotification = ref(null)
+let ws = null
+let pollTimer = null
 
 const getAlarmTypeTag = (type) => {
   const types = {
@@ -180,11 +203,86 @@ const resolve = async (row) => {
   }
 }
 
+/**
+ * 建立 WebSocket 连接
+ * 订阅 /topic/alarms 接收实时告警推送
+ */
+const connectWebSocket = () => {
+  try {
+    // 使用原生 WebSocket 连接 STOMP 端点
+    const socket = new WebSocket('ws://localhost:8080/ws')
+
+    socket.onopen = () => {
+      wsConnected.value = true
+      // 发送 STOMP CONNECT 帧
+      socket.send('CONNECT\naccept-version:1.1,1.0\nheart-beat:10000,10000\n\n\0')
+    }
+
+    socket.onmessage = (event) => {
+      const message = event.data
+      // 处理 STOMP 消息
+      if (message.includes('MESSAGE') && message.includes('/topic/alarms')) {
+        // 提取消息体（JSON）
+        const bodyMatch = message.match(/\n\n(.+)/s)
+        if (bodyMatch) {
+          try {
+            const alarm = JSON.parse(bodyMatch[1])
+            wsNotification.value = alarm
+            ElMessage.error(`实时告警: ${alarm.alarmContent}`)
+
+            // 将新告警插入列表顶部
+            alarms.value.unshift({ ...alarm, _loading: false })
+            total.value++
+          } catch (e) {
+            console.error('解析告警消息失败', e)
+          }
+        }
+      }
+    }
+
+    socket.onclose = () => {
+      wsConnected.value = false
+      // 5秒后重连
+      setTimeout(connectWebSocket, 5000)
+    }
+
+    socket.onerror = (error) => {
+      console.error('WebSocket 连接错误:', error)
+      wsConnected.value = false
+    }
+
+    ws = socket
+  } catch (e) {
+    console.error('WebSocket 连接失败:', e)
+    wsConnected.value = false
+  }
+}
+
+/**
+ * 断开 WebSocket 连接
+ */
+const disconnectWebSocket = () => {
+  if (ws) {
+    ws.close()
+    ws = null
+  }
+}
+
 onMounted(() => {
   loadData()
-  setInterval(() => {
+  // 轮询间隔改为30秒（配合WebSocket使用）
+  pollTimer = setInterval(() => {
     if (!loading.value) loadData()
-  }, 15000)
+  }, 30000)
+  // 建立 WebSocket 连接
+  connectWebSocket()
+})
+
+onUnmounted(() => {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+  }
+  disconnectWebSocket()
 })
 </script>
 

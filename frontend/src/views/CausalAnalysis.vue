@@ -7,7 +7,7 @@
             <span>因果关系图</span>
             <div class="filters">
               <el-select v-model="barnId" placeholder="棚舍" clearable style="width:140px;margin-right:10px">
-                <el-option v-for="n in 5" :key="n" :label="'棚舍 ' + n" :value="n" />
+                <el-option v-for="n in 10" :key="n" :label="'棚舍 ' + n" :value="n" />
               </el-select>
               <el-button type="primary" @click="analyzeCausal" :loading="loading">
                 执行分析
@@ -54,7 +54,7 @@ import { ElMessage } from 'element-plus'
 
 const causalGraph = ref(null)
 const loading = ref(false)
-const barnId = ref(null)
+const barnId = ref(1)
 const causalPaths = ref([])
 let chartInstance = null
 
@@ -141,11 +141,15 @@ const initCausalGraph = (graphData) => {
 }
 
 const analyzeCausal = async () => {
+  if (!barnId.value) {
+    ElMessage.warning('请先选择棚舍')
+    return
+  }
   loading.value = true
   try {
     const res = await runCausalAnalysis(barnId.value)
     causalPaths.value = res.causal_paths || []
-    initCausalGraph(res.graph || null)
+    initCausalGraph(res.causal_graph || res.graph || null)
     ElMessage.success(res.message || '分析完成')
   } catch (e) {
     ElMessage.error('分析失败：' + e.message)
@@ -158,7 +162,9 @@ const handleResize = () => chartInstance?.resize()
 
 onMounted(async () => {
   await nextTick()
-  analyzeCausal()
+  if (barnId.value) {
+    analyzeCausal()
+  }
   window.addEventListener('resize', handleResize)
 })
 

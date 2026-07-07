@@ -67,7 +67,7 @@
 <script setup>
 import { ref, computed, onMounted, reactive } from 'vue'
 import Layout from '../components/Layout.vue'
-import { getReportList, getReportDetail } from '../api/traceability'
+import { getReportList, getReportDetail } from '../api/report'
 import { ElMessage } from 'element-plus'
 
 const reports = ref([])
