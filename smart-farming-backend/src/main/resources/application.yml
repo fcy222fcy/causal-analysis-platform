@@ -1,0 +1,118 @@
+server:
+  port: 8080
+
+# 文件上传配置
+spring:
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+  application:
+    name: smart-farming-backend
+
+  # 默认使用 H2 数据库（开发环境）
+  profiles:
+    active: dev
+
+  # Jackson configuration
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+    default-property-inclusion: non_null
+
+---
+# 开发环境配置（H2）
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  # H2 Database configuration
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:smart_farming;DB_CLOSE_DELAY=-1;MODE=MYSQL
+    username: sa
+    password:
+
+  # H2 Console
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  # SQL init
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema.sql
+
+  # 开发环境排除 Redis
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+
+---
+# 生产环境配置（MySQL + Redis）
+spring:
+  config:
+    activate:
+      on-profile: mysql
+
+  # MySQL Database configuration
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/smart_farming?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+
+  # Redis configuration
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      database: 0
+      timeout: 5000ms
+
+---
+# MyBatis-Plus configuration
+mybatis-plus:
+  mapper-locations: classpath:mapper/**/*.xml
+  type-aliases-package: com.smartfarming.entity
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# JWT configuration
+jwt:
+  secret: smart-farming-secret-key-for-jwt-token-generation-2026
+  expiration: 86400000  # 24 hours
+
+# Logging configuration
+logging:
+  level:
+    com.smartfarming: debug
+    org.springframework: info
+
+# Knife4j configuration
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+
+# Python causal analysis service
+python:
+  causal:
+    service:
+      url: http://localhost:5000
