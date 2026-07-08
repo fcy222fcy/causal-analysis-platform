@@ -31,14 +31,13 @@ api.interceptors.response.use(
     return data
   },
   error => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 || error.response?.status === 403) {
       localStorage.removeItem('token')
+      localStorage.removeItem('user')
       ElMessage.warning('登录已过期，请重新登录')
       setTimeout(() => {
         window.location.href = '/login'
       }, 1000)
-    } else if (error.response?.status === 403) {
-      ElMessage.error('无权限访问')
     } else if (error.response?.status === 404) {
       ElMessage.error('接口不存在：' + error.config?.url)
     } else if (error.response?.status === 500) {
