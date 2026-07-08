@@ -93,9 +93,6 @@
 
             <div class="form-options">
               <el-checkbox v-model="form.remember" size="default">记住账号</el-checkbox>
-              <span class="tip-default">
-                默认账号 <b>admin</b> / <b>admin123</b>
-              </span>
             </div>
 
             <el-form-item style="margin-top: 20px; margin-bottom: 12px">
